@@ -76,7 +76,7 @@
     return area > 0;
   }
 
-  // Conversión de grados decimales a Grados, Minutos y Segundos (DMS)
+  // Conversión de grados decimales a DMS
   function toDMS(val, isLat) {
     const dir = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'W');
     const absVal = Math.abs(val);
@@ -131,12 +131,10 @@
 
       let rawCoords = Array.isArray(rings[0][0]) ? rings[0][0] : rings[0];
 
-      // Forzar sentido antihorario (Counter-Clockwise)
       if (esSentidoHorario(rawCoords)) {
         rawCoords.reverse();
       }
 
-      // Proyectar coordenadas a WGS84 en Lat/Long
       let wgsCoords = rawCoords.map(coord => {
         if (Math.abs(coord[0]) > 180) {
           return mercatorToWgs84(coord[0], coord[1]);
@@ -144,19 +142,16 @@
         return [coord[0], coord[1]];
       });
 
-      // Extraer los vértices reales únicos descartando duplicados finales previa construcción
       let verticesUnicos = [...wgsCoords];
       const p1 = verticesUnicos[0];
       const pUlt = verticesUnicos[verticesUnicos.length - 1];
       if (p1[0] === pUlt[0] && p1[1] === pUlt[1]) {
-        verticesUnicos.pop(); // Quita el duplicado si ya venía cerrado en el JSON
+        verticesUnicos.pop();
       }
 
-      // Crear la lista final de coordenadas para KML incluyendo el cierre
       let coordsParaKml = [...verticesUnicos, verticesUnicos[0]];
-
-      // 1. GENERAR KML (Rojo, Grosor 4, Sin Relleno, Sentido Antihorario)
       let kmlCoordsStr = coordsParaKml.map(pt => `${pt[0]},${pt[1]},0`);
+
       const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
@@ -187,7 +182,7 @@
   </Document>
 </kml>`;
 
-      // Descargar archivo KML (Inserción explícita en el DOM para evitar bloqueo)
+      // Descarga directa cliente (Nativa sin servidores externos)
       const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -195,13 +190,13 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
 
-      // 2. GENERAR TABLA DE CÓDIGO DMS EN PANTALLA
+      // Renderizar tabla DMS
       const cuerpoTabla = document.getElementById('cuerpoTabla');
       cuerpoTabla.innerHTML = '';
       let textoCopiar = "Vértice\tLatitud\tLongitud\n";
 
-      // Mapear vértices reales (V1 a Vn)
       verticesUnicos.forEach((pt, idx) => {
         const latDMS = toDMS(pt[1], true);
         const lonDMS = toDMS(pt[0], false);
@@ -220,7 +215,6 @@
         cuerpoTabla.appendChild(row);
       });
 
-      // Agregar fila de cierre repitiendo explícitamente el Vértice 1
       const ptInicial = verticesUnicos[0];
       const latDMS_cierre = toDMS(ptInicial[1], true);
       const lonDMS_cierre = toDMS(ptInicial[0], false);
@@ -243,7 +237,7 @@
       document.getElementById('outputSection').style.display = 'block';
 
     } catch (e) {
-      alert("Error al procesar el archivo JSON. Asegúrate de que fue descargado correctamente del widget Dibujar.");
+      alert("Error al procesar el archivo JSON.");
       console.error(e);
     }
   }
@@ -252,7 +246,7 @@
     const copyText = document.getElementById('textoParaCopiar');
     copyText.select();
     document.execCommand('copy');
-    alert('¡Tabla de coordenadas copiada al portapapeles! Ya puedes pegarla en el documento o formulario de la Aeronáutica Civil.');
+    alert('¡Tabla de coordenadas copiada al portapapeles!');
   }
 </script>
 
