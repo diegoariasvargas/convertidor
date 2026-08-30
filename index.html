@@ -101,27 +101,32 @@
   }
 
   function ejecutarDescargarKML(kmlContent, fileName) {
-    // Formulario invisible para enviar POST a Vercel y forzar descarga attachment
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'https://descargador-kml.vercel.app/api/descargar';
-    form.target = '_blank';
-
-    const inputKml = document.createElement('input');
-    inputKml.type = 'hidden';
-    inputKml.name = 'kmlContent';
-    inputKml.value = kmlContent;
-    form.appendChild(inputKml);
-
-    const inputName = document.createElement('input');
-    inputName.type = 'hidden';
-    inputName.name = 'fileName';
-    inputName.value = fileName;
-    form.appendChild(inputName);
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
+    fetch('https://descargador-kml.vercel.app/api/descargar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        kmlContent: kmlContent,
+        fileName: fileName
+      })
+    })
+    .then(response => response.blob())
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${fileName}.kml`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    })
+    .catch(error => {
+      alert('Error al descargar el archivo KML.');
+      console.error(error);
+    });
   }
 
   function convertirAKml(jsonString, nombreArchivo) {
@@ -197,7 +202,7 @@
   </Document>
 </kml>`;
 
-      // Enviar al microservicio de Vercel
+      // Enviar al microservicio de Vercel vía Fetch
       ejecutarDescargarKML(kmlContent, nombreArchivo);
 
       // Renderizar tabla
