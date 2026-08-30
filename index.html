@@ -202,10 +202,8 @@
   </Document>
 </kml>`;
 
-      // Enviar al microservicio de Vercel vía Fetch
       ejecutarDescargarKML(kmlContent, nombreArchivo);
 
-      // Renderizar tabla
       const cuerpoTabla = document.getElementById('cuerpoTabla');
       cuerpoTabla.innerHTML = '';
       let textoCopiar = "Vértice\tLatitud\tLongitud\n";
