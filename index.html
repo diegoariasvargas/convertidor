@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Convertidor JSON a KML y Coordenadas DMS - PNNC / Aerocivil</title>
+  <title>Convertidor JSON a KML y Listado de Vértices DMS (Aerocivil)</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; margin: 0; padding: 12px; line-height: 1.4; color: #333; background-color: #fff; font-size: 13px; }
@@ -100,6 +100,30 @@
     }
   }
 
+  function ejecutarDescargarKML(kmlContent, fileName) {
+    // Formulario invisible para enviar POST a Vercel y forzar descarga attachment
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://descargador-kml.vercel.app/api/descargar';
+    form.target = '_blank';
+
+    const inputKml = document.createElement('input');
+    inputKml.type = 'hidden';
+    inputKml.name = 'kmlContent';
+    inputKml.value = kmlContent;
+    form.appendChild(inputKml);
+
+    const inputName = document.createElement('input');
+    inputName.type = 'hidden';
+    inputName.name = 'fileName';
+    inputName.value = fileName;
+    form.appendChild(inputName);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+  }
+
   function convertirAKml(jsonString, nombreArchivo) {
     try {
       const data = JSON.parse(jsonString);
@@ -173,31 +197,10 @@
   </Document>
 </kml>`;
 
-      // Abrir ventana auxiliar que activa la descarga automática fuera de la sandbox del iframe
-      const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
-      const blobUrl = URL.createObjectURL(blob);
-      
-      const nuevaVentana = window.open('', '_blank');
-      if (nuevaVentana) {
-        nuevaVentana.document.write(`
-          <html>
-            <head><title>Descargando KML...</title></head>
-            <body style="font-family: Arial; text-align: center; padding-top: 50px;">
-              <h2>Generando archivo KML...</h2>
-              <p>Si la descarga no inicia automáticamente, <a id="descarga" href="${blobUrl}" download="${nombreArchivo}.kml">haz clic aquí</a>.</p>
-              <script>
-                const a = document.getElementById('descarga');
-                a.click();
-                setTimeout(() => window.close(), 1500);
-              <\/script>
-            </body>
-          </html>
-        `);
-      } else {
-        alert("Por favor habilita los permisos de ventanas emergentes (pop-ups) en tu navegador para descargar el archivo KML.");
-      }
+      // Enviar al microservicio de Vercel
+      ejecutarDescargarKML(kmlContent, nombreArchivo);
 
-      // Generar tabla
+      // Renderizar tabla
       const cuerpoTabla = document.getElementById('cuerpoTabla');
       cuerpoTabla.innerHTML = '';
       let textoCopiar = "Vértice\tLatitud\tLongitud\n";
