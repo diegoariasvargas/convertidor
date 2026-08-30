@@ -1,253 +1,159 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Convertidor JSON a KML y Coordenadas DMS - PNNC / Aerocivil</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 30px; line-height: 1.6; color: #333; background-color: #f9f9f9; }
-    .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .box { border: 2px dashed #007ac2; padding: 20px; border-radius: 8px; background: #f4f8fb; }
-    input[type="file"] { margin: 15px 0; display: block; }
-    button { background-color: #007ac2; color: white; border: none; padding: 12px 24px; font-size: 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    button:hover { background-color: #005a9e; }
-    textarea { width: 100%; height: 100px; margin-top: 10px; font-family: monospace; font-size: 11px; box-sizing: border-box; }
-    .output-section { margin-top: 25px; display: none; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: center; font-size: 13px; }
-    th { background-color: #007ac2; color: white; }
-    .btn-copy { background-color: #28a745; margin-top: 10px; padding: 8px 16px; font-size: 12px; }
-    .btn-copy:hover { background-color: #218838; }
-    .cierre-row { background-color: #fff3cd; font-weight: bold; }
-  </style>
+<meta charset="UTF-8">
+<style>
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 16px;
+    background: #ffffff;
+    font-size: 13px;
+    box-sizing: border-box;
+  }
+  .container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .box {
+    border: 2px dashed #007ac2;
+    padding: 14px;
+    border-radius: 8px;
+    background: #f4f8fb;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .btn {
+    background: #007ac2;
+    color: #fff;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    width: 100%;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .btn:hover { background: #005a9e; }
+  .btn-c { background: #28a745; margin-bottom: 12px; }
+  .btn-c:hover { background: #218838; }
+  textarea {
+    width: 100%;
+    height: 70px;
+    font-family: monospace;
+    font-size: 11px;
+    box-sizing: border-box;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 6px;
+    text-align: center;
+    font-size: 12px;
+  }
+  th { background: #007ac2; color: #fff; }
+  .cr { background: #fff3cd; font-weight: 700; }
+</style>
 </head>
 <body>
-
 <div class="container">
-  <h2>Convertidor de JSON a KML y Listado de Vértices DMS (Aerocivil)</h2>
+  <h3 style="margin:0 0 12px;color:#007ac2">Convertidor de JSON a KML y Listado de Vértices DMS (Aerocivil)</h3>
   
   <div class="box">
     <label><b>1. Carga el archivo .json descargado del visor:</b></label>
-    <input type="file" id="fileInput" accept=".json,.geojson,.txt">
+    <input type="file" id="fIn" accept=".json,.geojson,.txt" style="display:block;margin:8px 0">
     
     <label><b>O pega el contenido JSON aquí:</b></label>
-    <textarea id="jsonText" placeholder="Pega tu JSON de Esri / ArcGIS aquí..."></textarea>
+    <textarea id="jTx" placeholder="Pega el JSON de Esri / GeoJSON aquí..."></textarea>
     
-    <br><br>
-    <button onclick="procesarYDescargar()">2. Convertir, Descargar KML y Generar Coordenadas</button>
+    <button class="btn" onclick="pProc()">2. Convertir, Descargar KML y Generar Coordenadas</button>
   </div>
 
-  <div id="outputSection" class="output-section">
-    <h3>Vértices del Polígono (Formato Aerocivil - Grados, Minutos, Segundos)</h3>
-    <p><small><i>* El Vértice 1 se repite al final de la secuencia para garantizar el cierre del polígono sin crear un vértice adicional.</i></small></p>
-    
-    <button class="btn-copy" onclick="copiarCoordenadas()">Copiar Tabla de Coordenadas</button>
-    
-    <table id="tablaVertices">
+  <div id="outS" style="display:none;margin-top:14px">
+    <button class="btn btn-c" onclick="cCop()">Copiar Tabla de Coordenadas</button>
+    <table>
       <thead>
-        <tr>
-          <th>Vértice</th>
-          <th>Latitud (N/S)</th>
-          <th>Longitud (E/O)</th>
-          <th>Texto Formateado</th>
-        </tr>
+        <tr><th>Vértice</th><th>Latitud</th><th>Longitud</th><th>Formato Salida</th></tr>
       </thead>
-      <tbody id="cuerpoTabla"></tbody>
+      <tbody id="tbB"></tbody>
     </table>
-    
-    <textarea id="textoParaCopiar" style="position: absolute; left: -9999px;"></textarea>
+    <textarea id="tCop" style="position:absolute;left:-9999px"></textarea>
   </div>
 </div>
 
 <script>
-  // Reproyección de Web Mercator (EPSG:3857) a WGS84 (EPSG:4326)
-  function mercatorToWgs84(x, y) {
-    const lon = (x / 6378137.0) * (180 / Math.PI);
-    let lat = (y / 6378137.0) * (180 / Math.PI);
-    lat = (180 / Math.PI) * (2 * Math.atan(Math.exp(lat * (Math.PI / 180))) - (Math.PI / 2));
-    return [lon, lat];
-  }
-
-  // Comprobar si el anillo está en sentido horario
-  function esSentidoHorario(coords) {
-    let area = 0;
-    for (let i = 0; i < coords.length - 1; i++) {
-      area += (coords[i+1][0] - coords[i][0]) * (coords[i+1][1] + coords[i][1]);
-    }
-    return area > 0;
-  }
-
-  // Conversión de grados decimales a Grados, Minutos y Segundos (DMS)
-  function toDMS(val, isLat) {
-    const dir = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'W');
-    const absVal = Math.abs(val);
-    const deg = Math.floor(absVal);
-    const minFloat = (absVal - deg) * 60;
-    const min = Math.floor(minFloat);
-    const sec = ((minFloat - min) * 60).toFixed(2);
-    return `${deg}°${min}'${sec}"${dir}`;
-  }
-
-  function procesarYDescargar() {
-    const fileInput = document.getElementById('fileInput');
-    const jsonText = document.getElementById('jsonText').value.trim();
-
-    if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        convertirAKml(e.target.result, file.name.replace(/\.[^/.]+$/, ""));
-      };
-      reader.readAsText(file);
-    } else if (jsonText !== "") {
-      convertirAKml(jsonText, "vuelo_dron_pnnc");
-    } else {
-      alert("Por favor selecciona un archivo JSON o pega el texto en el recuadro.");
-    }
-  }
-
-  function convertirAKml(jsonString, nombreArchivo) {
-    try {
-      const data = JSON.parse(jsonString);
-      let rings = [];
-
-      if (data.geometry && data.geometry.rings) {
-        rings = data.geometry.rings;
-      } else if (data.rings) {
-        rings = data.rings;
-      } else if (Array.isArray(data) && data[0] && data[0].geometry && data[0].geometry.rings) {
-        rings = data[0].geometry.rings;
-      } else if (data.features && data.features[0] && data.features[0].geometry && data.features[0].geometry.rings) {
-        rings = data.features[0].geometry.rings;
-      }
-
-      if (rings.length === 0) {
-        alert("No se encontraron geometrías de polígono válidas en el JSON.");
-        return;
-      }
-
-      let rawCoords = rings[0];
-
-      // Forzar sentido antihorario (Counter-Clockwise)
-      if (esSentidoHorario(rawCoords)) {
-        rawCoords.reverse();
-      }
-
-      // Proyectar coordenadas a WGS84 en Lat/Long
-      let wgsCoords = rawCoords.map(coord => {
-        if (Math.abs(coord[0]) > 180) {
-          return mercatorToWgs84(coord[0], coord[1]);
-        }
-        return [coord[0], coord[1]];
-      });
-
-      // Extraer los vértices reales únicos descartando duplicados finales previa construcción
-      let verticesUnicos = [...wgsCoords];
-      const p1 = verticesUnicos[0];
-      const pUlt = verticesUnicos[verticesUnicos.length - 1];
-      if (p1[0] === pUlt[0] && p1[1] === pUlt[1]) {
-        verticesUnicos.pop(); // Quita el duplicado si ya venía cerrado en el JSON
-      }
-
-      // Crear la lista final de coordenadas para KML incluyendo el cierre
-      let coordsParaKml = [...verticesUnicos, verticesUnicos[0]];
-
-      // 1. GENERAR KML (Rojo, Grosor 4, Sin Relleno, Sentido Antihorario)
-      let kmlCoordsStr = coordsParaKml.map(pt => `${pt[0]},${pt[1]},0`);
-      const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${nombreArchivo}</name>
-    <Style id="estiloVueloDron">
-      <LineStyle>
-        <color>ff0000ff</color>
-        <width>4</width>
-      </LineStyle>
-      <PolyStyle>
-        <fill>0</fill>
-        <outline>1</outline>
-      </PolyStyle>
-    </Style>
-    <Placemark>
-      <name>Poligono_de_Vuelo_Dron</name>
-      <styleUrl>#estiloVueloDron</styleUrl>
-      <Polygon>
-        <outerBoundaryIs>
-          <LinearRing>
-            <coordinates>
-              ${kmlCoordsStr.join('\n              ')}
-            </coordinates>
-          </LinearRing>
-        </outerBoundaryIs>
-      </Polygon>
-    </Placemark>
-  </Document>
-</kml>`;
-
-      // Descargar archivo KML
-      const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${nombreArchivo}.kml`;
-      link.click();
-
-      // 2. GENERAR TABLA DE CÓDIGO DMS EN PANTALLA
-      const cuerpoTabla = document.getElementById('cuerpoTabla');
-      cuerpoTabla.innerHTML = '';
-      let textoCopiar = "Vértice\tLatitud\tLongitud\n";
-
-      // Mapear vértices reales (V1 a Vn)
-      verticesUnicos.forEach((pt, idx) => {
-        const latDMS = toDMS(pt[1], true);
-        const lonDMS = toDMS(pt[0], false);
-        const etiquetaVertice = `V${idx + 1}`;
-        const textoFmt = `${etiquetaVertice}: ${latDMS} ${lonDMS}`;
-
-        textoCopiar += `${etiquetaVertice}\t${latDMS}\t${lonDMS}\n`;
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td><b>${etiquetaVertice}</b></td>
-          <td>${latDMS}</td>
-          <td>${lonDMS}</td>
-          <td><code>${textoFmt}</code></td>
-        `;
-        cuerpoTabla.appendChild(row);
-      });
-
-      // Agregar fila de cierre repitiendo explícitamente el Vértice 1
-      const ptInicial = verticesUnicos[0];
-      const latDMS_cierre = toDMS(ptInicial[1], true);
-      const lonDMS_cierre = toDMS(ptInicial[0], false);
-      const etiquetaCierre = "V1 (Cierre)";
-      const textoFmtCierre = `V1: ${latDMS_cierre} ${lonDMS_cierre}`;
-
-      textoCopiar += `V1\t${latDMS_cierre}\t${lonDMS_cierre}\n`;
-
-      const rowCierre = document.createElement('tr');
-      rowCierre.className = 'cierre-row';
-      rowCierre.innerHTML = `
-        <td><b>${etiquetaCierre}</b></td>
-        <td>${latDMS_cierre}</td>
-        <td>${lonDMS_cierre}</td>
-        <td><code>${textoFmtCierre}</code></td>
-      `;
-      cuerpoTabla.appendChild(rowCierre);
-
-      document.getElementById('textoParaCopiar').value = textoCopiar;
-      document.getElementById('outputSection').style.display = 'block';
-
-    } catch (e) {
-      alert("Error al procesar el archivo JSON. Asegúrate de que fue descargado correctamente del widget Dibujar.");
-    }
-  }
-
-  function copiarCoordenadas() {
-    const copyText = document.getElementById('textoParaCopiar');
-    copyText.select();
-    document.execCommand('copy');
-    alert('¡Tabla de coordenadas copiada al portapapeles! Ya puedes pegarla en el documento o formulario de la Aeronáutica Civil.');
-  }
+function m2w(x,y){
+  let l=(x/6378137)*(180/Math.PI);
+  let a=(y/6378137)*(180/Math.PI);
+  a=(180/Math.PI)*(2*Math.atan(Math.exp(a*(Math.PI/180)))-(Math.PI/2));
+  return[l,a];
+}
+function eSH(c){
+  let a=0;
+  for(let i=0;i<c.length-1;i++) a+=(c[i+1][0]-c[i][0])*(c[i+1][1]+c[i][1]);
+  return a>0;
+}
+function tDMS(v,isL){
+  let d=isL?(v>=0?'N':'S'):(v>=0?'E':'W');
+  let a=Math.abs(v),deg=Math.floor(a),mf=(a-deg)*60,m=Math.floor(mf),s=((mf-m)*60).toFixed(2);
+  return deg+'°'+m+"'"+s+'"'+d;
+}
+function pProc(){
+  let fi=document.getElementById('fIn'),jt=document.getElementById('jTx').value.trim();
+  if(fi.files.length>0){
+    let r=new FileReader();
+    r.onload=e=>cKML(e.target.result,fi.files[0].name.replace(/\.[^/.]+$/,""));
+    r.readAsText(fi.files[0]);
+  }else if(jt!==''){
+    cKML(jt,"vuelo_dron_pnnc");
+  }else alert("Selecciona o pega un JSON.");
+}
+function cKML(jStr,nA){
+  try{
+    let d=JSON.parse(jStr),r=[];
+    if(d.geometry&&d.geometry.rings)r=d.geometry.rings;
+    else if(d.rings)r=d.rings;
+    else if(Array.isArray(d)&&d[0]?.geometry?.rings)r=d[0].geometry.rings;
+    else if(d.features&&d.features[0]?.geometry?.rings)r=d.features[0].geometry.rings;
+    if(!r.length)return alert("Sin geometría de polígono válida.");
+    let rc=r[0];
+    if(eSH(rc))rc.reverse();
+    let wC=rc.map(c=>Math.abs(c[0])>180?m2w(c[0],c[1]):[c[0],c[1]]),vU=[...wC],p1=vU[0],pU=vU[vU.length-1];
+    if(p1[0]===pU[0]&&p1[1]===pU[1])vU.pop();
+    let cK=[...vU,vU[0]],kStr=cK.map(p=>p[0]+','+p[1]+',0').join('\n');
+    let kCon=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${nA}</name><Style id="s"><LineStyle><color>ff0000ff</color><width>4</width></LineStyle><PolyStyle><fill>0</fill><outline>1</outline></PolyStyle></Style><Placemark><name>Poligono</name><styleUrl>#s</styleUrl><Polygon><outerBoundaryIs><LinearRing><coordinates>${kStr}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Document></kml>`;
+    let b=new Blob([kCon],{type:'application/vnd.google-earth.kml+xml'}),l=document.createElement('a');
+    l.href=URL.createObjectURL(b);l.download=nA+'.kml';l.click();
+    let tb=document.getElementById('tbB');tb.innerHTML='';
+    let txt="Vértice\tLatitud\tLongitud\n";
+    vU.forEach((pt,i)=>{
+      let lat=tDMS(pt[1],1),lon=tDMS(pt[0],0),v='V'+(i+1),fmt=v+': '+lat+' '+lon;
+      txt+=v+'\t'+lat+'\t'+lon+'\n';
+      tb.innerHTML+=`<tr><td><b>${v}</b></td><td>${lat}</td><td>${lon}</td><td><code>${fmt}</code></td></tr>`;
+    });
+    let pI=vU[0],latC=tDMS(pI[1],1),lonC=tDMS(pI[0],0);
+    txt+='V1\t'+latC+'\t'+lonC+'\n';
+    tb.innerHTML+=`<tr class="cr"><td><b>V1 (Cierre)</b></td><td>${latC}</td><td>${lonC}</td><td><code>V1: ${latC} ${lonC}</code></td></tr>`;
+    document.getElementById('tCop').value=txt;
+    document.getElementById('outS').style.display='block';
+  }catch(e){alert("Error al procesar el JSON.");}
+}
+function cCop(){
+  let t=document.getElementById('tCop');
+  t.select();
+  document.execCommand('copy');
+  alert('¡Coordenadas copiadas al portapapeles!');
+}
 </script>
-
 </body>
 </html>
