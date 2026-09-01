@@ -2,64 +2,65 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Convertidor JSON a KML2 y Coordenadas DMS - PNNC / Aerocivil</title>
+  <title>Convertidor a KML – Formatos Aerocivil y FAC</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 30px; line-height: 1.6; color: #333; background-color: #f9f9f9; }
-    .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .box { border: 2px dashed #007ac2; padding: 20px; border-radius: 8px; background: #f4f8fb; }
-    input[type="file"] { margin: 15px 0; display: block; }
-    button { background-color: #007ac2; color: white; border: none; padding: 12px 24px; font-size: 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    button:hover { background-color: #005a9e; }
-    textarea { width: 100%; height: 100px; margin-top: 10px; font-family: monospace; font-size: 11px; box-sizing: border-box; }
+    .container { max-width: 850px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .box { border: 2px dashed #007ac2; padding: 20px; border-radius: 8px; background: #f4f8fb; text-align: center; }
+    input[type="file"] { margin: 15px auto; display: block; }
+    button { background-color: #28a745; color: white; border: none; padding: 12px 30px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background-color: #218838; }
     .output-section { margin-top: 25px; display: none; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: center; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: center; font-size: 13px; }
     th { background-color: #007ac2; color: white; }
-    .btn-copy { background-color: #28a745; margin-top: 10px; padding: 8px 16px; font-size: 12px; }
-    .btn-copy:hover { background-color: #218838; }
+    .poligono-header { background-color: #e6f2ff; font-weight: bold; text-align: left; padding-left: 15px; }
+    .btn-copy { background-color: #007ac2; margin-top: 10px; padding: 8px 16px; font-size: 12px; }
+    .btn-copy:hover { background-color: #005a9e; }
     .cierre-row { background-color: #fff3cd; font-weight: bold; }
+    .format-selector { margin: 10px 0; text-align: left; background: #f0f8ff; padding: 8px; border-radius: 5px; }
+    .format-selector label { margin-right: 20px; }
+    textarea { width: 100%; height: 80px; margin-top: 10px; font-size: 12px; }
+    .fac-fila-lat { background-color: #f9f9f9; }
+    .fac-fila-lon { background-color: #ffffff; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>Convertidor de JSON a KML y Listado de Vértices DMS (Aerocivil)</h2>
+  <h2>Convertidor a KML – Formatos Aerocivil y FAC</h2>
   
   <div class="box">
-    <label><b>1. Carga el archivo .json descargado del visor:</b></label>
-    <input type="file" id="fileInput" accept=".json,.geojson,.txt">
-    
-    <label><b>O pega el contenido JSON aquí:</b></label>
-    <textarea id="jsonText" placeholder="Pega tu JSON de Esri / ArcGIS aquí..."></textarea>
-    
+    <label><b>1. Selecciona tu archivo (.geojson, .json, .kml, .kmz):</b></label>
+    <input type="file" id="fileInput" accept=".json,.geojson,.kml,.kmz">
     <br><br>
-    <button onclick="procesarYDescargar()">2. Convertir, Descargar KML y Generar Coordenadas</button>
+    <button onclick="procesarYDescargar()">2. Convertir a KML y calcular coordenadas</button>
+    <p><small>El convertidor detecta automáticamente el tipo de archivo y corrige la orientación a sentido antihorario.</small></p>
   </div>
 
   <div id="outputSection" class="output-section">
-    <h3>Vértices del Polígono (Formato Aerocivil - Grados, Minutos, Segundos)</h3>
-    <p><small><i>* El Vértice 1 se repite al final de la secuencia para garantizar el cierre del polígono sin crear un vértice adicional.</i></small></p>
+    <h3>Vértices de los Polígonos</h3>
     
+    <div class="format-selector">
+      <b>Formato de coordenadas:</b>
+      <label><input type="radio" name="formato" value="aerocivil" checked> Aerocivil</label>
+      <label><input type="radio" name="formato" value="fac"> FAC (Fuerza Aeroespacial)</label>
+    </div>
+
     <button class="btn-copy" onclick="copiarCoordenadas()">Copiar Tabla de Coordenadas</button>
     
-    <table id="tablaVertices">
-      <thead>
-        <tr>
-          <th>Vértice</th>
-          <th>Latitud (N/S)</th>
-          <th>Longitud (E/O)</th>
-          <th>Texto Formateado</th>
-        </tr>
-      </thead>
-      <tbody id="cuerpoTabla"></tbody>
-    </table>
+    <div id="tablaContainer">
+      <!-- Aquí se inyectará la tabla según el formato -->
+    </div>
     
     <textarea id="textoParaCopiar" style="position: absolute; left: -9999px;"></textarea>
   </div>
 </div>
 
 <script>
-  // Reproyección de Web Mercator (EPSG:3857) a WGS84 (EPSG:4326)
+  // ==================== UTILIDADES ====================
+
   function mercatorToWgs84(x, y) {
     const lon = (x / 6378137.0) * (180 / Math.PI);
     let lat = (y / 6378137.0) * (180 / Math.PI);
@@ -67,17 +68,24 @@
     return [lon, lat];
   }
 
-  // Comprobar si el anillo está en sentido horario
-  function esSentidoHorario(coords) {
-    let area = 0;
-    for (let i = 0; i < coords.length - 1; i++) {
-      area += (coords[i+1][0] - coords[i][0]) * (coords[i+1][1] + coords[i][1]);
-    }
-    return area > 0;
+  // Devuelve objeto con grados, minutos, segundos y dirección, formateados para FAC
+  function toDMS_FAC(val, isLat) {
+    const dir = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'W');
+    const absVal = Math.abs(val);
+    const deg = Math.floor(absVal);
+    const minFloat = (absVal - deg) * 60;
+    const min = Math.floor(minFloat);
+    const sec = ((minFloat - min) * 60);
+    return {
+      dir: dir,
+      deg: String(deg).padStart(2, '0'),
+      min: String(min).padStart(2, '0'),
+      sec: sec.toFixed(2).padStart(5, '0')
+    };
   }
 
-  // Conversión de grados decimales a Grados, Minutos y Segundos (DMS)
-  function toDMS(val, isLat) {
+  // Para Aerocivil (formato con ° ' ")
+  function toDMS_Aero(val, isLat) {
     const dir = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'W');
     const absVal = Math.abs(val);
     const deg = Math.floor(absVal);
@@ -87,52 +95,153 @@
     return `${deg}°${min}'${sec}"${dir}`;
   }
 
-  function procesarYDescargar() {
-    const fileInput = document.getElementById('fileInput');
-    const jsonText = document.getElementById('jsonText').value.trim();
+  function limpiarCierre(coords) {
+    let pts = [...coords];
+    if (pts.length > 1) {
+      const p1 = pts[0];
+      const pUlt = pts[pts.length - 1];
+      if (Math.abs(p1[0] - pUlt[0]) < 1e-9 && Math.abs(p1[1] - pUlt[1]) < 1e-9) {
+        pts.pop();
+      }
+    }
+    return pts;
+  }
 
-    if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        convertirAKml(e.target.result, file.name.replace(/\.[^/.]+$/, ""));
-      };
-      reader.readAsText(file);
-    } else if (jsonText !== "") {
-      convertirAKml(jsonText, "vuelo_dron_pnnc");
-    } else {
-      alert("Por favor selecciona un archivo JSON o pega el texto en el recuadro.");
+  // ==================== ORIENTACIÓN (ÁREA FIRMADA) ====================
+
+  function areaFirmadaWGS84(coords) {
+    let pts = limpiarCierre(coords);
+    if (pts.length < 3) return 0;
+    let area = 0;
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const x1 = pts[i][0];
+      const y1 = pts[i][1];
+      const x2 = pts[(i + 1) % n][0];
+      const y2 = pts[(i + 1) % n][1];
+      area += (x1 * y2) - (x2 * y1);
+    }
+    return area;
+  }
+
+  function obtenerOrientacion(coords) {
+    const area = areaFirmadaWGS84(coords);
+    if (area > 1e-9) return 'CCW';
+    else if (area < -1e-9) return 'CW';
+    else return 'Indeterminado';
+  }
+
+  // ==================== EXTRACCIÓN DE ANILLOS ====================
+
+  function extraerRingsDeJson(data) {
+    let allRings = [];
+    if (data.geometry && data.geometry.rings) {
+      allRings.push(...data.geometry.rings);
+    } else if (data.rings) {
+      allRings.push(...data.rings);
+    } else if (data.geometry && data.geometry.coordinates) {
+      if (data.geometry.type === "Polygon") {
+        allRings.push(...data.geometry.coordinates);
+      } else if (data.geometry.type === "MultiPolygon") {
+        data.geometry.coordinates.forEach(poly => allRings.push(...poly));
+      }
+    } else if (Array.isArray(data)) {
+      data.forEach(item => {
+        allRings.push(...extraerRingsDeJson(item));
+      });
+    } else if (data.features && Array.isArray(data.features)) {
+      data.features.forEach(feat => {
+        allRings.push(...extraerRingsDeJson(feat));
+      });
+    }
+    return allRings;
+  }
+
+  function extraerRingsDeKml(xmlString) {
+    let allRings = [];
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+    const linearRings = xmlDoc.querySelectorAll("LinearRing");
+    linearRings.forEach(ring => {
+      const coordNode = ring.querySelector("coordinates");
+      if (!coordNode) return;
+      const text = coordNode.textContent.trim();
+      if (!text) return;
+      const rawPoints = text.split(/\s+/);
+      let ringCoords = [];
+      rawPoints.forEach(ptStr => {
+        const parts = ptStr.split(',').map(Number);
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          ringCoords.push([parts[0], parts[1]]);
+        }
+      });
+      if (ringCoords.length > 0) {
+        allRings.push(ringCoords);
+      }
+    });
+    return allRings;
+  }
+
+  // ==================== PROCESAMIENTO PRINCIPAL ====================
+
+  async function procesarYDescargar() {
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput.files.length === 0) {
+      alert("Por favor selecciona un archivo.");
+      return;
+    }
+    const file = fileInput.files[0];
+    const baseName = file.name.replace(/\.[^/.]+$/, "");
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    try {
+      let contenido;
+      if (ext === 'kmz') {
+        const arrayBuffer = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const kmlFile = Object.keys(zip.files).find(name => name.toLowerCase().endsWith('.kml'));
+        if (!kmlFile) {
+          alert("No se encontró ningún archivo .kml dentro del KMZ.");
+          return;
+        }
+        contenido = await zip.files[kmlFile].async("text");
+      } else {
+        contenido = await file.text();
+      }
+      procesarContenido(contenido, baseName, ext);
+    } catch (e) {
+      alert("Error al leer el archivo: " + e.message);
     }
   }
 
-  function convertirAKml(jsonString, nombreArchivo) {
+  function procesarContenido(rawContent, nombreArchivo, ext) {
     try {
-      const data = JSON.parse(jsonString);
-      let rings = [];
-
-      if (data.geometry && data.geometry.rings) {
-        rings = data.geometry.rings;
-      } else if (data.rings) {
-        rings = data.rings;
-      } else if (Array.isArray(data) && data[0] && data[0].geometry && data[0].geometry.rings) {
-        rings = data[0].geometry.rings;
-      } else if (data.features && data.features[0] && data.features[0].geometry && data.features[0].geometry.rings) {
-        rings = data.features[0].geometry.rings;
+      let allRings = [];
+      const trimmed = rawContent.trim();
+      if (ext === 'kml' || trimmed.startsWith('<') || trimmed.includes('<?xml') || trimmed.includes('<kml')) {
+        allRings = extraerRingsDeKml(trimmed);
+      } else {
+        const data = JSON.parse(trimmed);
+        allRings = extraerRingsDeJson(data);
       }
-
-      if (rings.length === 0) {
-        alert("No se encontraron geometrías de polígono válidas en el JSON.");
+      if (allRings.length === 0) {
+        alert("No se encontraron polígonos válidos.");
         return;
       }
+      generarKmlYTabla(allRings, nombreArchivo);
+    } catch (e) {
+      alert("Error al procesar el archivo: " + e.message);
+    }
+  }
 
-      let rawCoords = rings[0];
+  function generarKmlYTabla(allRings, nombreArchivo) {
+    let placemarksKml = [];
+    let datosPoligonos = [];
 
-      // Forzar sentido antihorario (Counter-Clockwise)
-      if (esSentidoHorario(rawCoords)) {
-        rawCoords.reverse();
-      }
+    allRings.forEach((rawCoords, index) => {
+      const numPoligono = index + 1;
+      const nombrePoligono = `Polígono ${numPoligono}`;
 
-      // Proyectar coordenadas a WGS84 en Lat/Long
       let wgsCoords = rawCoords.map(coord => {
         if (Math.abs(coord[0]) > 180) {
           return mercatorToWgs84(coord[0], coord[1]);
@@ -140,20 +249,43 @@
         return [coord[0], coord[1]];
       });
 
-      // Extraer los vértices reales únicos descartando duplicados finales previa construcción
-      let verticesUnicos = [...wgsCoords];
-      const p1 = verticesUnicos[0];
-      const pUlt = verticesUnicos[verticesUnicos.length - 1];
-      if (p1[0] === pUlt[0] && p1[1] === pUlt[1]) {
-        verticesUnicos.pop(); // Quita el duplicado si ya venía cerrado en el JSON
+      let vertices = limpiarCierre(wgsCoords);
+      if (vertices.length < 3) return;
+
+      const orientacion = obtenerOrientacion(vertices);
+      if (orientacion === 'CW') {
+        vertices.reverse();
       }
 
-      // Crear la lista final de coordenadas para KML incluyendo el cierre
-      let coordsParaKml = [...verticesUnicos, verticesUnicos[0]];
+      datosPoligonos.push({
+        nombre: nombrePoligono,
+        vertices: vertices,
+        orientacion: orientacion,
+        invertido: (orientacion === 'CW')
+      });
 
-      // 1. GENERAR KML (Rojo, Grosor 4, Sin Relleno, Sentido Antihorario)
-      let kmlCoordsStr = coordsParaKml.map(pt => `${pt[0]},${pt[1]},0`);
-      const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+      let coordsParaKml = [...vertices, vertices[0]];
+      let kmlCoordsStr = coordsParaKml.map(pt => `${pt[0]},${pt[1]},0`).join('\n              ');
+
+      placemarksKml.push(`
+    <Placemark>
+      <name>${nombrePoligono}</name>
+      <styleUrl>#estiloVueloDron</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              ${kmlCoordsStr}
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>`);
+    });
+
+    renderizarTabla(datosPoligonos, 'aerocivil');
+
+    const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${nombreArchivo}</name>
@@ -166,86 +298,129 @@
         <fill>0</fill>
         <outline>1</outline>
       </PolyStyle>
-    </Style>
-    <Placemark>
-      <name>Poligono_de_Vuelo_Dron</name>
-      <styleUrl>#estiloVueloDron</styleUrl>
-      <Polygon>
-        <outerBoundaryIs>
-          <LinearRing>
-            <coordinates>
-              ${kmlCoordsStr.join('\n              ')}
-            </coordinates>
-          </LinearRing>
-        </outerBoundaryIs>
-      </Polygon>
-    </Placemark>
+    </Style>${placemarksKml.join('')}
   </Document>
 </kml>`;
 
-      // Descargar archivo KML
-      const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${nombreArchivo}.kml`;
-      link.click();
+    const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${nombreArchivo}_todos_CCW.kml`;
+    link.click();
 
-      // 2. GENERAR TABLA DE CÓDIGO DMS EN PANTALLA
-      const cuerpoTabla = document.getElementById('cuerpoTabla');
-      cuerpoTabla.innerHTML = '';
-      let textoCopiar = "Vértice\tLatitud\tLongitud\n";
+    document.getElementById('outputSection').style.display = 'block';
 
-      // Mapear vértices reales (V1 a Vn)
-      verticesUnicos.forEach((pt, idx) => {
-        const latDMS = toDMS(pt[1], true);
-        const lonDMS = toDMS(pt[0], false);
-        const etiquetaVertice = `V${idx + 1}`;
-        const textoFmt = `${etiquetaVertice}: ${latDMS} ${lonDMS}`;
-
-        textoCopiar += `${etiquetaVertice}\t${latDMS}\t${lonDMS}\n`;
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td><b>${etiquetaVertice}</b></td>
-          <td>${latDMS}</td>
-          <td>${lonDMS}</td>
-          <td><code>${textoFmt}</code></td>
-        `;
-        cuerpoTabla.appendChild(row);
+    const radios = document.getElementsByName('formato');
+    for (let radio of radios) {
+      radio.addEventListener('change', function() {
+        renderizarTabla(datosPoligonos, this.value);
       });
-
-      // Agregar fila de cierre repitiendo explícitamente el Vértice 1
-      const ptInicial = verticesUnicos[0];
-      const latDMS_cierre = toDMS(ptInicial[1], true);
-      const lonDMS_cierre = toDMS(ptInicial[0], false);
-      const etiquetaCierre = "V1 (Cierre)";
-      const textoFmtCierre = `V1: ${latDMS_cierre} ${lonDMS_cierre}`;
-
-      textoCopiar += `V1\t${latDMS_cierre}\t${lonDMS_cierre}\n`;
-
-      const rowCierre = document.createElement('tr');
-      rowCierre.className = 'cierre-row';
-      rowCierre.innerHTML = `
-        <td><b>${etiquetaCierre}</b></td>
-        <td>${latDMS_cierre}</td>
-        <td>${lonDMS_cierre}</td>
-        <td><code>${textoFmtCierre}</code></td>
-      `;
-      cuerpoTabla.appendChild(rowCierre);
-
-      document.getElementById('textoParaCopiar').value = textoCopiar;
-      document.getElementById('outputSection').style.display = 'block';
-
-    } catch (e) {
-      alert("Error al procesar el archivo JSON. Asegúrate de que fue descargado correctamente del widget Dibujar.");
     }
   }
+
+  // ==================== RENDERIZADO DE TABLAS ====================
+
+  function renderizarTabla(datosPoligonos, formato) {
+    const container = document.getElementById('tablaContainer');
+    let html = '';
+    let textoCopiar = '';
+
+    if (formato === 'aerocivil') {
+      // Formato Aerocivil: Vértice, Latitud (N/S), Longitud (E/O)
+      html += `<table>
+        <thead><tr><th>Vértice</th><th>Latitud (N/S)</th><th>Longitud (E/O)</th></tr></thead><tbody>`;
+      
+      datosPoligonos.forEach(pol => {
+        html += `<tr><td colspan="3" class="poligono-header"><b>${pol.nombre}</b></td></tr>`;
+        textoCopiar += `=== ${pol.nombre} ===\nVértice\tLatitud\tLongitud\n`;
+
+        pol.vertices.forEach((pt, idx) => {
+          const latStr = toDMS_Aero(pt[1], true);
+          const lonStr = toDMS_Aero(pt[0], false);
+          const etiqueta = `V${idx + 1}`;
+          html += `<tr><td><b>${etiqueta}</b></td><td>${latStr}</td><td>${lonStr}</td></tr>`;
+          textoCopiar += `${etiqueta}\t${latStr}\t${lonStr}\n`;
+        });
+
+        const ptCierre = pol.vertices[0];
+        const cierreLat = toDMS_Aero(ptCierre[1], true);
+        const cierreLon = toDMS_Aero(ptCierre[0], false);
+        html += `<tr class="cierre-row"><td><b>V1 (Cierre)</b></td><td>${cierreLat}</td><td>${cierreLon}</td></tr>`;
+        textoCopiar += `V1\t${cierreLat}\t${cierreLon}\n\n`;
+      });
+
+      html += `</tbody></table>`;
+
+    } else { // formato FAC – CON COLUMNAS SEPARADAS: Hemisferio | Grados | Minutos | Segundos
+      html += `<table>
+        <thead><tr><th>Puntos</th><th>Hemisferio</th><th>Grados</th><th>Minutos</th><th>Segundos</th></tr></thead><tbody>`;
+      
+      datosPoligonos.forEach(pol => {
+        html += `<tr><td colspan="5" class="poligono-header"><b>${pol.nombre}</b></td></tr>`;
+        textoCopiar += `=== ${pol.nombre} ===\nPuntos\tHemisferio\tGrados\tMinutos\tSegundos\n`;
+
+        pol.vertices.forEach((pt, idx) => {
+          const numVertice = idx + 1;
+          const lat = toDMS_FAC(pt[1], true);
+          const lon = toDMS_FAC(pt[0], false);
+
+          // Fila de latitud: Hemisferio N, Grados, Minutos, Segundos
+          html += `<tr class="fac-fila-lat">
+            <td><b>No.${numVertice}</b></td>
+            <td>${lat.dir}</td>
+            <td>${lat.deg}</td>
+            <td>${lat.min}</td>
+            <td>${lat.sec}</td>
+          </tr>`;
+          textoCopiar += `No.${numVertice}\t${lat.dir}\t${lat.deg}\t${lat.min}\t${lat.sec}\n`;
+
+          // Fila de longitud: sin número, Hemisferio W, Grados, Minutos, Segundos
+          html += `<tr class="fac-fila-lon">
+            <td></td>
+            <td>${lon.dir}</td>
+            <td>${lon.deg}</td>
+            <td>${lon.min}</td>
+            <td>${lon.sec}</td>
+          </tr>`;
+          textoCopiar += `\t${lon.dir}\t${lon.deg}\t${lon.min}\t${lon.sec}\n`;
+        });
+
+        // Cierre
+        const ptCierre = pol.vertices[0];
+        const latCierre = toDMS_FAC(ptCierre[1], true);
+        const lonCierre = toDMS_FAC(ptCierre[0], false);
+        html += `<tr class="cierre-row fac-fila-lat">
+          <td><b>No.${pol.vertices.length + 1} (Cierre)</b></td>
+          <td>${latCierre.dir}</td>
+          <td>${latCierre.deg}</td>
+          <td>${latCierre.min}</td>
+          <td>${latCierre.sec}</td>
+        </tr>`;
+        html += `<tr class="cierre-row fac-fila-lon">
+          <td></td>
+          <td>${lonCierre.dir}</td>
+          <td>${lonCierre.deg}</td>
+          <td>${lonCierre.min}</td>
+          <td>${lonCierre.sec}</td>
+        </tr>`;
+        textoCopiar += `No.${pol.vertices.length + 1} (Cierre)\t${latCierre.dir}\t${latCierre.deg}\t${latCierre.min}\t${latCierre.sec}\n`;
+        textoCopiar += `\t${lonCierre.dir}\t${lonCierre.deg}\t${lonCierre.min}\t${lonCierre.sec}\n\n`;
+      });
+
+      html += `</tbody></table>`;
+    }
+
+    container.innerHTML = html;
+    document.getElementById('textoParaCopiar').value = textoCopiar.trim();
+  }
+
+  // ==================== COPIAR ====================
 
   function copiarCoordenadas() {
     const copyText = document.getElementById('textoParaCopiar');
     copyText.select();
     document.execCommand('copy');
-    alert('¡Tabla de coordenadas copiada al portapapeles! Ya puedes pegarla en el documento o formulario de la Aeronáutica Civil.');
+    alert('¡Tabla de coordenadas copiada al portapapeles!');
   }
 </script>
 
